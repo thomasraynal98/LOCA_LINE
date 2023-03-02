@@ -550,3 +550,39 @@ std::string enum_to_string(int id)
     std::string My_String(modeString[id]);
     return My_String;
 }
+
+int number_of_file_in_folder(std::string folder_path)
+{
+    int count = 0;
+
+    for (const auto& entry : std::filesystem::directory_iterator(folder_path))
+    {
+        if (entry.is_regular_file())
+        {
+            count++;
+        }
+    }
+
+    return count;
+}
+
+double get_directory_size(std::string folder_path)
+{
+    std::uintmax_t total_size = 0;
+
+    for (const auto& entry : std::filesystem::recursive_directory_iterator(folder_path))
+    {
+        if (entry.is_regular_file())
+        {
+            total_size += std::filesystem::file_size(entry.path());
+        }
+    }
+
+    return octets_to_mega_octets(total_size);
+}
+
+double octets_to_mega_octets(std::uintmax_t size_in_octets)
+{
+    const double bytes_in_megabytes = 1048576.0;
+    return static_cast<double>(size_in_octets) / bytes_in_megabytes;
+}

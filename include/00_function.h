@@ -10,6 +10,8 @@
 #include <sys/types.h>
 #include <stdio.h>
 #include <ctime>
+#include <filesystem>
+
 
 #include <sys/stat.h>
 #include <cstring>
@@ -83,3 +85,7 @@ void add_text_to_image(cv::Mat& image, const std::string& text, const cv::Point&
 
 void add_status_bar(cv::Mat& mat, const cv::Scalar& color, std::string text) ;
 std::string enum_to_string(int id);
+
+int number_of_file_in_folder(std::string folder_path);
+double get_directory_size(std::string folder_path);
+double octets_to_mega_octets(std::uintmax_t size_in_octets);

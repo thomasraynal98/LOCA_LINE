@@ -9,15 +9,23 @@ using namespace std;
 std::thread thread_compute;
 std::thread thread_render;
 
-int cam_id = 0;
-Vect2i resolution = Vect2i(480, 640);
+int cam_id                  = 0;
+Vect2i resolution           = Vect2i(480, 640);
 cv::Mat input_image;
-cv::Mat interface_brut    = cv::Mat(500, 800, CV_8UC3);
-cv::Mat interface_brut_cp = cv::Mat(500, 800, CV_8UC3);
-bool exit_cap = false;
-int ms_to_compute = 0;
+cv::Mat interface_brut      = cv::Mat(500, 800, CV_8UC3);
+cv::Mat interface_brut_cp   = cv::Mat(500, 800, CV_8UC3);
+bool exit_cap               = false;
+int ms_to_compute           = 0;
 
-mode _mode = mode::NO_MODE;
+mode _mode                  = mode::NO_MODE;
+std::string folder_name     = "";
+double record_fps           = 0.0;
+bool start_record           = false;
+int64_t start_recording     = get_curr_timestamp();
+int counter_recording       = 0;
+std::string file_name       = "image";
+
+std::vector<std::vector<cv::Mat>> dataset;
 
 void f_thread_compute()
 {
@@ -40,7 +48,8 @@ void f_thread_compute()
 
     cap.set(cv::CAP_PROP_FRAME_WIDTH, width);
     cap.set(cv::CAP_PROP_FRAME_HEIGHT, height);
-    // cap.set(cv::CAP_PROP_FPS, 30);
+
+    int64_t last_recording = get_curr_timestamp();
 
     while(true)
     {
@@ -51,6 +60,32 @@ void f_thread_compute()
 
         ms_to_compute = get_elapsed_time(get_curr_timestamp(), compute_ts);
         compute_ts = get_curr_timestamp();
+
+        if(_mode == mode::RECORDING)
+        {
+            if(!start_record)
+            {
+                std::string command = "mkdir ../data/" + folder_name + "_" + std::to_string(resolution.i) + "p";
+                system(command.c_str());
+                start_record = true;
+            }
+            else
+            {
+                if(get_elapsed_time(get_curr_timestamp(), last_recording) > 1000.0/record_fps)
+                {
+                    std::string curr_file_name = "../data/" + folder_name + "_" + std::to_string(resolution.i) + "p/" + file_name + "_" + std::to_string(counter_recording) + ".png";
+                    cv::imwrite(curr_file_name, input_image);
+                    counter_recording++;
+                    last_recording = get_curr_timestamp();
+                }
+            }
+        }
+
+        if(_mode == mode::SAVING)
+        {
+            std::cout << "New dataset \"" + folder_name + "_" + std::to_string(resolution.i) + "p\" saved with " << std::to_string(number_of_file_in_folder(("../data/" + folder_name + "_" + std::to_string(resolution.i) + "p").c_str())) << " images. Size = " << std::to_string(get_directory_size(("../data/" + folder_name + "_" + std::to_string(resolution.i) + "p").c_str())) << " Mo" << std::endl;
+            _mode = mode::NO_MODE;
+        }
 
         if(exit_cap) cap.release();
     }
@@ -124,7 +159,9 @@ int main(int argc, char** argv) {
     for (int i = 1; i < argc; i++) {
         if(strcmp(argv[i], "-flag") == 0) {
             myFlag = true;
-        } else if(strcmp(argv[i], "-record") == 0) {
+        } else if(strcmp(argv[i], "-record") == 0 && i + 2 < argc) {
+            folder_name = argv[i+1];
+            record_fps  = std::stod(argv[i+2]);
             _mode = mode::READY_TO_RECORD;
         } else if (strcmp(argv[i], "-param") == 0 && i + 1 < argc) {
             myParam = stoi(argv[i+1]);
