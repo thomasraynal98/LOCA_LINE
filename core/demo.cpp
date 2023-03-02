@@ -3,6 +3,7 @@
 #include <iostream>
 #include <string>
 #include <cstring>
+#include <DBoW2/DBoW2.h>
 
 using namespace std;
 
@@ -26,6 +27,58 @@ int counter_recording       = 0;
 std::string file_name       = "image";
 
 std::vector<std::vector<cv::Mat>> dataset;
+bool start_matching         = false;
+
+using namespace DBoW2;
+void loadFeatures(vector<vector<cv::Mat>> &features);
+void changeStructure(const cv::Mat &plain, vector<cv::Mat> &out);
+void testVocCreation(const vector<vector<cv::Mat>> &features);
+void testDatabase(const vector<vector<cv::Mat>> &features);
+
+// void create_matching_dataset(DBoW2::Vocabulary& voc, std::vector<DBoW2::BowVector>& bowvecs, std::vector<cv::Mat>& descriptors)
+// {
+//     // 1. Initialiser le détecteur et descripteur de points clés
+//     cv::Ptr<cv::FeatureDetector> detector = cv::ORB::create();
+//     cv::Ptr<cv::DescriptorExtractor> extractor = cv::ORB::create();
+
+//     // 2. Créer un itérateur pour parcourir le dossier contenant le dataset
+//     counter_recording = 0;
+//     std::String image_name = "../data/" + folder_name + "_" + std::to_string(resolution.i) + "p/image_" + std::to_string(counter_recording) + ".png";
+
+//     // 3. Récupérer le nombre de photo disponible.
+//     for(int i = 0; i < 10000000; i++)
+//     {
+//         if(!file_exist("../data/" + folder_name + "_" + std::to_string(resolution.i) + "p/image_" + std::to_string(counter_recording) + ".png")) break;
+//         counter_recording++;
+//     }
+
+//     int total_image   = counter_recording;
+//     counter_recording = 0;
+
+//     // 4. Parcourir les images une par une.
+//     for(int i = 0; i < counter_recording; i++)
+//     {
+//         // 3.1 Charger l'image.
+//         cv::Mat image = cv::imread("../data/" + folder_name + "_" + std::to_string(resolution.i) + "p/image_" + std::to_string(counter_recording) + ".png");
+
+//         // 3.2 Détecter et extraire les points clés et les descripteurs de l'image
+//         std::vector<cv::KeyPoint> keypoints;
+//         cv::Mat image_descriptors;
+//         detector->detect(image, keypoints);
+//         extractor->compute(image, keypoints, image_descriptors);
+
+//         // 3.3 Ajouter les descripteurs à la liste des descripteurs
+//         descriptors.push_back(image_descriptors);
+
+//         // 3.4 Calculer le vecteur bag-of-words pour l'image
+//         DBoW2::BowVector bowvec;
+//         voc.transform(image_descriptors, bowvec);
+//         bowvecs.push_back(bowvec);
+//     }
+
+//     // 5. Entraîner le vocabulaire sur l'ensemble des descripteurs
+//     voc.train(descriptors);
+// }
 
 void f_thread_compute()
 {
@@ -85,6 +138,18 @@ void f_thread_compute()
         {
             std::cout << "New dataset \"" + folder_name + "_" + std::to_string(resolution.i) + "p\" saved with " << std::to_string(number_of_file_in_folder(("../data/" + folder_name + "_" + std::to_string(resolution.i) + "p").c_str())) << " images. Size = " << std::to_string(get_directory_size(("../data/" + folder_name + "_" + std::to_string(resolution.i) + "p").c_str())) << " Mo" << std::endl;
             _mode = mode::NO_MODE;
+
+            uint64 extrator_ts = get_curr_timestamp();
+            std::vector<vector<cv::Mat>> features;
+            loadFeatures(features);
+            std::cout << "Extraction completed = " << std::to_string(get_elapsed_time(get_curr_timestamp(), extrator_ts)) << std::endl;
+        }
+
+        if(_mode == mode::MATCHING)
+        {
+            if(!start_matching)
+            {
+            }
         }
 
         if(exit_cap) cap.release();
@@ -159,6 +224,9 @@ int main(int argc, char** argv) {
     for (int i = 1; i < argc; i++) {
         if(strcmp(argv[i], "-flag") == 0) {
             myFlag = true;
+        } else if(strcmp(argv[i], "-m") == 0 && i + 1 < argc) {
+            _mode = mode::MATCHING;
+            folder_name = argv[i+1];
         } else if(strcmp(argv[i], "-record") == 0 && i + 2 < argc) {
             folder_name = argv[i+1];
             record_fps  = std::stod(argv[i+2]);
@@ -202,4 +270,169 @@ int main(int argc, char** argv) {
     thread_render.join();
 
     return 0;
+}
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+
+// number of training images
+const int NIMAGES = 6;
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+
+void wait()
+{
+  cout << endl << "Press enter to continue" << endl;
+  getchar();
+}
+
+// ----------------------------------------------------------------------------
+
+// int main()
+// {
+//   vector<vector<cv::Mat > > features;
+//   loadFeatures(features);
+
+//   testVocCreation(features);
+
+//   wait();
+
+//   testDatabase(features);
+
+//   return 0;
+// }
+
+// ----------------------------------------------------------------------------
+
+void loadFeatures(vector<vector<cv::Mat>> &features)
+{
+    // 3. Récupérer le nombre de photo disponible.
+    for(int i = 0; i < 10000000; i++)
+    {
+        if(!file_exist("~/Dev/LOCA_LINE/data/" + folder_name + "_" + std::to_string(resolution.i) + "p/image_" + std::to_string(counter_recording) + ".png")) break;
+        counter_recording++;
+    }
+
+    features.clear();
+    features.reserve(counter_recording);
+
+    cv::Ptr<cv::ORB> orb = cv::ORB::create();
+
+    cout << "Extracting ORB features..." << endl;
+    for(int i = 0; i < counter_recording; ++i)
+    {
+        cv::Mat image = cv::imread(("../data/" + folder_name + "_" + std::to_string(resolution.i) + "p/image_" + std::to_string(counter_recording) + ".png"), 0);
+        cv::Mat mask;
+        vector<cv::KeyPoint> keypoints;
+        cv::Mat descriptors;
+
+        orb->detectAndCompute(image, mask, keypoints, descriptors);
+
+        features.push_back(vector<cv::Mat >());
+        changeStructure(descriptors, features.back());
+    }
+}
+
+// ----------------------------------------------------------------------------
+
+void changeStructure(const cv::Mat &plain, vector<cv::Mat> &out)
+{
+  out.resize(plain.rows);
+
+  for(int i = 0; i < plain.rows; ++i)
+  {
+    out[i] = plain.row(i);
+  }
+}
+
+// ----------------------------------------------------------------------------
+
+void testVocCreation(const vector<vector<cv::Mat > > &features)
+{
+  // branching factor and depth levels 
+  const int k = 9;
+  const int L = 3;
+  const WeightingType weight = TF_IDF;
+  const ScoringType scoring = L1_NORM;
+
+  OrbVocabulary voc(k, L, weight, scoring);
+
+  cout << "Creating a small " << k << "^" << L << " vocabulary..." << endl;
+  voc.create(features);
+  cout << "... done!" << endl;
+
+  cout << "Vocabulary information: " << endl
+  << voc << endl << endl;
+
+  // lets do something with this vocabulary
+  cout << "Matching images against themselves (0 low, 1 high): " << endl;
+  BowVector v1, v2;
+  for(int i = 0; i < NIMAGES; i++)
+  {
+    voc.transform(features[i], v1);
+    for(int j = 0; j < NIMAGES; j++)
+    {
+      voc.transform(features[j], v2);
+      
+      double score = voc.score(v1, v2);
+      cout << "Image " << i << " vs Image " << j << ": " << score << endl;
+    }
+  }
+
+  // save the vocabulary to disk
+  cout << endl << "Saving vocabulary..." << endl;
+  voc.save("small_voc.yml.gz");
+  cout << "Done" << endl;
+}
+
+// ----------------------------------------------------------------------------
+
+void testDatabase(const vector<vector<cv::Mat > > &features)
+{
+  cout << "Creating a small database..." << endl;
+
+  // load the vocabulary from disk
+  OrbVocabulary voc("small_voc.yml.gz");
+  
+  OrbDatabase db(voc, false, 0); // false = do not use direct index
+  // (so ignore the last param)
+  // The direct index is useful if we want to retrieve the features that 
+  // belong to some vocabulary node.
+  // db creates a copy of the vocabulary, we may get rid of "voc" now
+
+  // add images to the database
+  for(int i = 0; i < NIMAGES; i++)
+  {
+    db.add(features[i]);
+  }
+
+  cout << "... done!" << endl;
+
+  cout << "Database information: " << endl << db << endl;
+
+  // and query the database
+  cout << "Querying the database: " << endl;
+
+  QueryResults ret;
+  for(int i = 0; i < NIMAGES; i++)
+  {
+    db.query(features[i], ret, 4);
+
+    // ret[0] is always the same image in this case, because we added it to the 
+    // database. ret[1] is the second best match.
+
+    cout << "Searching for Image " << i << ". " << ret << endl;
+  }
+
+  cout << endl;
+
+  // we can save the database. The created file includes the vocabulary
+  // and the entries added
+  cout << "Saving database..." << endl;
+  db.save("small_db.yml.gz");
+  cout << "... done!" << endl;
+  
+  // once saved, we can load it again  
+  cout << "Retrieving database once again..." << endl;
+  OrbDatabase db2("small_db.yml.gz");
+  cout << "... done! This is: " << endl << db2 << endl;
 }

@@ -13,6 +13,9 @@ SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -pthread -L/usr/local/lib")
 
 # found package.
 FIND_PACKAGE(OpenCV 4.2 REQUIRED)
+FIND_PACKAGE(DBoW2 REQUIRED)
+
+include_directories(${OpenCV_INCLUDE_DIRS} ${DBoW2_INCLUDE_DIRS})
 
 # PROGRAMME 01 
 ADD_EXECUTABLE(01_DEMO 
@@ -24,4 +27,6 @@ TARGET_LINK_LIBRARIES(01_DEMO
     pthread
     hiredis
     redis++
+    /usr/local/lib/libDBoW2.so
+    ${DBoW2_LIBS}
     ${OpenCV_LIBS})
