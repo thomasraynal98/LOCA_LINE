@@ -35,50 +35,26 @@ void changeStructure(const cv::Mat &plain, vector<cv::Mat> &out);
 void testVocCreation(const vector<vector<cv::Mat>> &features);
 void testDatabase(const vector<vector<cv::Mat>> &features);
 
-// void create_matching_dataset(DBoW2::Vocabulary& voc, std::vector<DBoW2::BowVector>& bowvecs, std::vector<cv::Mat>& descriptors)
-// {
-//     // 1. Initialiser le détecteur et descripteur de points clés
-//     cv::Ptr<cv::FeatureDetector> detector = cv::ORB::create();
-//     cv::Ptr<cv::DescriptorExtractor> extractor = cv::ORB::create();
+void save_record_voc(const vector<vector<cv::Mat > > &features)
+{
+    // branching factor and depth levels 
+    const int k = 9;
+    const int L = 3;
+    const WeightingType weight = TF_IDF;
+    const ScoringType scoring = L1_NORM;
 
-//     // 2. Créer un itérateur pour parcourir le dossier contenant le dataset
-//     counter_recording = 0;
-//     std::String image_name = "../data/" + folder_name + "_" + std::to_string(resolution.i) + "p/image_" + std::to_string(counter_recording) + ".png";
+    OrbVocabulary voc(k, L, weight, scoring);
+    voc.create(features);
+    voc.save(folder_name + "_" + std::to_string(resolution.i) + ".yml.gz");
 
-//     // 3. Récupérer le nombre de photo disponible.
-//     for(int i = 0; i < 10000000; i++)
-//     {
-//         if(!file_exist("../data/" + folder_name + "_" + std::to_string(resolution.i) + "p/image_" + std::to_string(counter_recording) + ".png")) break;
-//         counter_recording++;
-//     }
+    std::string command = "cp ~/Dev/LOCA_LINE/build/" + folder_name + "_" + std::to_string(resolution.i) + ".yml.gz ~/Dev/LOCA_LINE/data/" + folder_name + "_" + std::to_string(resolution.i) + "p/";
+    system(command.c_str());
+}
 
-//     int total_image   = counter_recording;
-//     counter_recording = 0;
-
-//     // 4. Parcourir les images une par une.
-//     for(int i = 0; i < counter_recording; i++)
-//     {
-//         // 3.1 Charger l'image.
-//         cv::Mat image = cv::imread("../data/" + folder_name + "_" + std::to_string(resolution.i) + "p/image_" + std::to_string(counter_recording) + ".png");
-
-//         // 3.2 Détecter et extraire les points clés et les descripteurs de l'image
-//         std::vector<cv::KeyPoint> keypoints;
-//         cv::Mat image_descriptors;
-//         detector->detect(image, keypoints);
-//         extractor->compute(image, keypoints, image_descriptors);
-
-//         // 3.3 Ajouter les descripteurs à la liste des descripteurs
-//         descriptors.push_back(image_descriptors);
-
-//         // 3.4 Calculer le vecteur bag-of-words pour l'image
-//         DBoW2::BowVector bowvec;
-//         voc.transform(image_descriptors, bowvec);
-//         bowvecs.push_back(bowvec);
-//     }
-
-//     // 5. Entraîner le vocabulaire sur l'ensemble des descripteurs
-//     voc.train(descriptors);
-// }
+void read_record_voc()
+{
+    OrbVocabulary voc(folder_name + "_" + std::to_string(resolution.i) + ".yml.gz");
+}
 
 void f_thread_compute()
 {
@@ -124,12 +100,16 @@ void f_thread_compute()
             }
             else
             {
-                if(get_elapsed_time(get_curr_timestamp(), last_recording) > 1000.0/record_fps)
+                if(!input_image.empty())
                 {
-                    std::string curr_file_name = "../data/" + folder_name + "_" + std::to_string(resolution.i) + "p/" + file_name + "_" + std::to_string(counter_recording) + ".png";
-                    cv::imwrite(curr_file_name, input_image);
-                    counter_recording++;
-                    last_recording = get_curr_timestamp();
+                    if(get_elapsed_time(get_curr_timestamp(), last_recording) > 1000.0/record_fps)
+                    {
+                        std::string curr_file_name = "../data/" + folder_name + "_" + std::to_string(resolution.i) + "p/" + file_name + "_" + std::to_string(counter_recording) + ".png";
+                        cv::imwrite(curr_file_name, input_image);
+                        cv::waitKey(10);
+                        counter_recording++;
+                        last_recording = get_curr_timestamp();
+                    }
                 }
             }
         }
@@ -139,16 +119,23 @@ void f_thread_compute()
             std::cout << "New dataset \"" + folder_name + "_" + std::to_string(resolution.i) + "p\" saved with " << std::to_string(number_of_file_in_folder(("../data/" + folder_name + "_" + std::to_string(resolution.i) + "p").c_str())) << " images. Size = " << std::to_string(get_directory_size(("../data/" + folder_name + "_" + std::to_string(resolution.i) + "p").c_str())) << " Mo" << std::endl;
             _mode = mode::NO_MODE;
 
+            std::this_thread::sleep_until(std::chrono::high_resolution_clock::now() + std::chrono::milliseconds((int)1000));
+
             uint64 extrator_ts = get_curr_timestamp();
             std::vector<vector<cv::Mat>> features;
             loadFeatures(features);
-            std::cout << "Extraction completed = " << std::to_string(get_elapsed_time(get_curr_timestamp(), extrator_ts)) << std::endl;
+            std::cout << "Extraction completed = " << std::to_string(get_elapsed_time(get_curr_timestamp(), extrator_ts)) << " ms" << std::endl;
+
+            save_record_voc(features);
+            std::cout << "Vocubalary saved." << std::endl;
         }
 
         if(_mode == mode::MATCHING)
         {
             if(!start_matching)
             {
+
+                start_matching = true;
             }
         }
 
@@ -224,7 +211,7 @@ int main(int argc, char** argv) {
     for (int i = 1; i < argc; i++) {
         if(strcmp(argv[i], "-flag") == 0) {
             myFlag = true;
-        } else if(strcmp(argv[i], "-m") == 0 && i + 1 < argc) {
+        } else if(strcmp(argv[i], "-m") == 0 && i + 2 < argc) {
             _mode = mode::MATCHING;
             folder_name = argv[i+1];
         } else if(strcmp(argv[i], "-record") == 0 && i + 2 < argc) {
@@ -317,11 +304,12 @@ void loadFeatures(vector<vector<cv::Mat>> &features)
 
     cv::Ptr<cv::ORB> orb = cv::ORB::create();
 
-    cout << "Extracting ORB features..." << endl;
+    std::cout << "Extracting ORB features in " << std::to_string(counter_recording) << " images." << std::endl;
     for(int i = 0; i < counter_recording; ++i)
     {
-        cv::Mat image = cv::imread(("../data/" + folder_name + "_" + std::to_string(resolution.i) + "p/image_" + std::to_string(counter_recording) + ".png"), 0);
+        cv::Mat image = cv::imread(("../data/" + folder_name + "_" + std::to_string(resolution.i) + "p/image_" + std::to_string(i) + ".png"), 0);
         cv::Mat mask;
+
         vector<cv::KeyPoint> keypoints;
         cv::Mat descriptors;
 
@@ -329,6 +317,7 @@ void loadFeatures(vector<vector<cv::Mat>> &features)
 
         features.push_back(vector<cv::Mat >());
         changeStructure(descriptors, features.back());
+        std::cout << "extraction (" << i+1 << "|" <<  counter_recording << ")" << std::endl;
     }
 }
 
@@ -366,15 +355,15 @@ void testVocCreation(const vector<vector<cv::Mat > > &features)
   // lets do something with this vocabulary
   cout << "Matching images against themselves (0 low, 1 high): " << endl;
   BowVector v1, v2;
-  for(int i = 0; i < NIMAGES; i++)
+  for(int i = 0; i < features.size(); i++)
   {
     voc.transform(features[i], v1);
-    for(int j = 0; j < NIMAGES; j++)
+    for(int j = 0; j < features.size(); j++)
     {
       voc.transform(features[j], v2);
       
       double score = voc.score(v1, v2);
-      cout << "Image " << i << " vs Image " << j << ": " << score << endl;
+    //   cout << "Image " << i << " vs Image " << j << ": " << score << endl;
     }
   }
 

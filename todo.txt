@@ -1,7 +1,7 @@
 [X] - Mettre en place le recording de dataset avec -record + "name folder" auquel viendra se rajouter la qualité "name_folder_480p"
-[ ] - Transformer se dataset en vocabulaire prêt à être utilisé.
+[X] - Transformer se dataset en vocabulaire prêt à être utilisé.
 [ ] - Preparer la mise en place du mode matching.
-[ ] - Chargement du dataset x. (faire touche qui permet automatiquement de lister les noms de dataset diponible)
+[O] - Chargement du dataset x. (faire touche qui permet automatiquement de lister les noms de dataset diponible)
 [ ] - Intégrer algo qui va transformer new frame en vocabulaire.
 [ ] - Intégrer algo qui va regarder lequel match le mieux.
 [ ] - Afficher la taille du dataset sur mode MATCHING.
